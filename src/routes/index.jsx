@@ -4,7 +4,7 @@ import { Marks } from "../components/marks"
 import { Layout } from "../layout"
 import { TimeTable } from "../components/timeTable"
 import { AttendanceCircle } from "../components/attendance"
-import { SemesterSchedule } from "../components/Semesterscheduel"
+import { SemesterSchedule } from "../components/semesterscheduel"
 import { TeacherLayout } from '../layout/teacherLayout';
 import { TeacherDashboardHome } from '../components/teacherDashboardHome';
 import { ManageStudents } from '../components/manageStudents';
