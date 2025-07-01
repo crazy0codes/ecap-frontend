@@ -8,13 +8,13 @@ export function SemesterSchedule() {
     useEffect(() => {
         setLoading(true);
         setError(null);
-        fetch('http://localhost:8080/api/exams/schedule/R18/1/events')
+        fetch('http://localhost:8080/api/exams/schedule/V20/1/events')
             .then(res => {
                 if (!res.ok) throw new Error("Network response was not ok");
                 return res.json();
             })
             .then(data => setSemesterSchedule(data))
-            .catch(err => setError("Failed to fetch semesterSchedule"))
+            .catch(err => console.log(err))
             .finally(() => setLoading(false));
     }, []); 
 

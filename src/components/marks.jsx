@@ -12,10 +12,11 @@ export function Marks({ className }) {
         fetch(`http://localhost:8080/api/students/22A81A0643/semester/${semester}/marks`)
             .then((res) => {
                 if (!res.ok) throw new Error("Failed to fetch marks");
+                console.log(res)
                 return res.json();
             })
             .then((data) => setMarks(data))
-            .catch((err) => setError("Failed to load"))
+            .catch((err) => console.log(err))
             .finally(() => setLoading(false));
     }, [semester]);
 
