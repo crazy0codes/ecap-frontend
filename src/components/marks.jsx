@@ -1,24 +1,51 @@
 import { useEffect, useState } from "react";
+import { useAuth } from './AuthContext'; // Import useAuth
 
 export function Marks({ className }) {
+    const { user, getAuthHeaders } = useAuth(); // Get user and getAuthHeaders from AuthContext
     const [marks, setMarks] = useState([]);
-    const [semester, setSemester] = useState(1);
+    const [semester, setSemester] = useState(1); // Default to semester 1
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
     useEffect(() => {
-        setLoading(true);
-        setError("");
-        fetch(`http://localhost:8080/api/students/22A81A0643/semester/${semester}/marks`)
-            .then((res) => {
-                if (!res.ok) throw new Error("Failed to fetch marks");
-                console.log(res)
-                return res.json();
-            })
-            .then((data) => setMarks(data))
-            .catch((err) => console.log(err))
-            .finally(() => setLoading(false));
-    }, [semester]);
+        const fetchMarks = async () => {
+            if (!user || !user.rollNumber) {
+                setError("User not logged in or roll number not available for marks fetch.");
+                setLoading(false);
+                return;
+            }
+
+            setLoading(true);
+            setError("");
+            try {
+                // Fetch marks for the logged-in student and selected semester
+                const response = await fetch(`http://localhost:8080/api/students/${user.rollNumber}/semester/${semester}/marks`, {
+                    headers: getAuthHeaders(user.rollNumber, user.password) // Pass credentials
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401 || response.status === 403) {
+                        throw new Error("Authentication error. Please log in again.");
+                    }
+                    if (response.status === 204) { // No Content
+                        setMarks([]);
+                        return;
+                    }
+                    throw new Error("Failed to fetch marks: " + response.statusText);
+                }
+                const data = await response.json();
+                setMarks(data);
+            } catch (err) {
+                console.error("Error fetching marks:", err);
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchMarks();
+    }, [semester, user, getAuthHeaders]); // Re-fetch when semester or user changes
 
     return (
         <div className={className + " px-2 shadow-lg"}>
@@ -27,21 +54,31 @@ export function Marks({ className }) {
                     Semester{" "}
                     <select
                         value={semester}
-                        onChange={(e) => setSemester(e.target.value)}
-                        className="ml-2 px-2 py-1"
+                        onChange={(e) => setSemester(parseInt(e.target.value))} // Ensure semester is an integer
+                        className="ml-2 px-2 py-1 border rounded-md"
                     >
+                        {/* You might want to dynamically fetch available semesters from backend */}
                         <option value="1">1</option>
                         <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
                     </select>
                 </h2>
             </div>
             {loading && (
-                <div className="text-center py-4 text-gray-500">Loading...</div>
+                <div className="text-center py-4 text-gray-500">Loading marks...</div>
             )}
             {error && (
                 <div className="text-center py-4 text-red-500">{error}</div>
             )}
-            {!loading && !error && (
+            {!loading && !error && marks.length === 0 && (
+                <div className="text-center py-4 text-gray-500">No marks found for this semester.</div>
+            )}
+            {!loading && !error && marks.length > 0 && (
                 <table className="table-auto w-full text-center border border-gray-300 shadow-lg rounded-lg overflow-hidden text-sm">
                     <thead>
                         <tr className="bg-gray-900 text-white text-sm">
@@ -49,11 +86,11 @@ export function Marks({ className }) {
                             <th className="px-3 py-4">Course Code</th>
                             <th className="px-3 py-4">Course Name</th>
                             <th className="px-3 py-4">Grade</th>
-                            <th className="px-3 py-4">Grade Points</th>
+                            <th className="px-3 py-4">Marks Obtained</th> {/* Changed from Grade Points to Marks Obtained */}
                             <th className="px-3 py-4">Credits</th>
                         </tr>
                     </thead>
-                    <tbody className="">
+                    <tbody>
                         {marks.map((mark, index) => (
                             <tr key={index} className="border-t border-gray-300 hover:bg-gray-200">
                                 <td className="px-3 py-4">{index + 1}</td>

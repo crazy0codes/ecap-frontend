@@ -14,7 +14,10 @@ import { UploadExamSchedule } from '../components/uploadExamSchedule';
 
 
 export const Navigation = () => (<Routes>
-    <Route path="/" element={<Layout />}>
+    
+    <Route path="/" element={<Login />} />
+
+    <Route path="/student" element={<Layout />}>
         <Route index element={<Profile />} />
         <Route path="semester" element={<Marks />} />
         <Route path="semesterSchedule" element={

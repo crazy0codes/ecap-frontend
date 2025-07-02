@@ -1,68 +1,78 @@
 import { useEffect, useState } from "react";
-
-
-/* 
-        s1_0.roll_number,
-        s1_0.address,
-        s1_0.bloodgroup,
-        s1_0.branch_id,
-        s1_0.email,
-        s1_0.fathername,
-        s1_0.mobileno,
-        s1_0.mothername,
-        s1_0.name,
-        s1_0.regulation_id 
-
-*/
-
-
-/* 
-
-   {
-      "address": "456 New Street, Hyderabad, Telangana",
-      "email": "malli.updated@gmail.com",
-      "mobileno": "7788990011"
-      // bloodgroup is omitted, so it won't be changed
-    }
-
-*/
+import { useAuth } from './AuthContext'; // Import useAuth
 
 export function Profile({ className }) {
-    const [user, setUser] = useState({})
+    const { user, getAuthHeaders } = useAuth(); // Get user and getAuthHeaders from AuthContext
+    const [profileData, setProfileData] = useState({}); // Renamed from 'user' to 'profileData' to avoid conflict with auth context 'user'
+    const [isEditing, setIsEditing] = useState(false);
+    const [editProfileData, setEditProfileData] = useState({}); // Renamed from 'editUser'
 
     async function fetchUser() {
-        const data = await fetch('http://localhost:8080/api/students/22A81A0643/profile')
-        const jsonData = await data.json()
-        console.log(jsonData)
-        setUser(jsonData);
+        if (!user || !user.rollNumber) {
+            console.warn("No user logged in or roll number not available for profile fetch.");
+            return;
+        }
+        try {
+            const response = await fetch(`http://localhost:8080/api/students/${user.rollNumber}/profile`, {
+                headers: getAuthHeaders(user.rollNumber, user.password) // Pass credentials for Basic Auth
+            });
+            if (!response.ok) {
+                if (response.status === 401 || response.status === 403) {
+                    console.error("Authentication error fetching profile. Please log in again.");
+                    // Optionally, force logout here if token is invalid
+                    // logout();
+                }
+                throw new Error(`Failed to fetch profile: ${response.statusText}`);
+            }
+            const jsonData = await response.json();
+            console.log("Fetched Profile Data:", jsonData);
+            setProfileData(jsonData);
+        } catch (err) {
+            console.error("Error fetching user profile:", err);
+            // Handle error, e.g., show a message to the user
+        }
     }
 
     useEffect(() => {
         fetchUser();
-    }, [])
-
-    const [isEditing, setIsEditing] = useState(false);
-    const [editUser, setEditUser] = useState({});
+    }, [user]); // Re-fetch when the user object from AuthContext changes (e.g., after login)
 
     function handleEditClick() {
-        setEditUser(user);
+        setEditProfileData(profileData);
         setIsEditing(true);
     }
 
     function handleChange(e) {
         const { name, value } = e.target;
-        console.log(name, value)
-        setEditUser(prev => ({ ...prev, [name]: value }));
+        setEditProfileData(prev => ({ ...prev, [name]: value }));
     }
 
     async function handleSave() {
-        await fetch('http://localhost:8080/api/students/22A81A0643/profile', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(editUser),
-        });
-        setUser(editUser);
-        setIsEditing(false);
+        if (!user || !user.rollNumber) {
+            console.warn("Cannot save profile: No user logged in.");
+            return;
+        }
+        try {
+            const response = await fetch(`http://localhost:8080/api/students/${user.rollNumber}/profile`, {
+                method: 'PUT',
+                headers: getAuthHeaders(user.rollNumber, user.password), // Pass credentials
+                body: JSON.stringify(editProfileData),
+            });
+            if (!response.ok) {
+                if (response.status === 401 || response.status === 403) {
+                    console.error("Authentication error saving profile. Please log in again.");
+                    // logout();
+                }
+                throw new Error(`Failed to save profile: ${response.statusText}`);
+            }
+            const updatedData = await response.json();
+            setProfileData(updatedData);
+            setIsEditing(false);
+            console.log("Profile updated successfully!");
+        } catch (err) {
+            console.error("Error saving user profile:", err);
+            // Handle error, e.g., show a message to the user
+        }
     }
 
     function renderInfo(label, value, name) {
@@ -72,7 +82,7 @@ export function Profile({ className }) {
                 <input
                     className="font-black font-medium border rounded px-2 py-1"
                     name={name}
-                    value={editUser[name] || ""}
+                    value={editProfileData[name] || ""}
                     onChange={handleChange}
                 />
             </div>
@@ -86,27 +96,30 @@ export function Profile({ className }) {
             <div className="gap-4 p-5 min-w-50 flex shadow  rounded-lg border bg-card text-card-foreground shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200  items-center">
                 <img
                     className="rounded-full h-24 w-24 object-cover border-2 border-gray-300"
-                    src="https://image-cdn.hypb.st/https%3A%2F%2Fhypebeast.com%2Fimage%2F2022%2F12%2Fgame-of-thrones-kit-harington-teases-jon-snow-spinoff-series-tw.jpg?w=1080&cbr=1&q=90&fit=max"
-                    alt="Jon Snow"
+                    src="https://placehold.co/96x96/ADD8E6/000000?text=Student" // Placeholder image
+                    alt="Student Profile"
                 />
                 <div className="">
-                    <h3 className="font-bold tracking-tighter text-3xl">{user.name}</h3>
-                    <p className="text-sm font-semibold">B.Tech - CSE</p>
+                    <h3 className="font-bold tracking-tighter text-3xl">{profileData.name || 'Loading...'}</h3>
+                    <p className="text-sm font-semibold">B.Tech - CSE</p> {/* Assuming a default branch/degree */}
                 </div>
             </div>
 
             <div className="mt-3 px-6 rounded-lg border border-gray-300 shadow py-4 text-gray-700  flex flex-col w-full  text-sm space-y-2">
                 <p className="text-2xl tracking-tight  font-semibold">Personal Information</p>
                 <div className="w-full grid grid-cols-2">
-                    {renderInfo("Section", user.section, "section")}
-                    {renderInfo("Year", user.year, "year")}
-                    {renderInfo("Roll No", user.rollNumber, "rollNumber")}
-                    {renderInfo("Mobile No", user.mobileno, "mobileno")}
-                    {renderInfo("Email", user.email, "email")}
-                    {renderInfo("Blood Group", user.bloodgroup, "bloodgroup")}
-                    {renderInfo("Village", user.address, "address")}
-                    {renderInfo("Father", user.fatherName, "fatherName")}
-                    {renderInfo("Mother", user.motherName, "motherName")}
+                    {/* Note: Section and Year are not directly in your backend StudentDetailsResponse DTO.
+                        You might need to adjust your DTO or fetch this data from another source if needed.
+                        For now, I'm keeping them as placeholders if they are expected by the UI. */}
+                    {renderInfo("Section", "A", "section")} {/* Placeholder */}
+                    {renderInfo("Year", "III", "year")}     {/* Placeholder */}
+                    {renderInfo("Roll No", profileData.rollNumber, "rollNumber")}
+                    {renderInfo("Mobile No", profileData.mobileno, "mobileno")}
+                    {renderInfo("Email", profileData.email, "email")}
+                    {renderInfo("Blood Group", profileData.bloodgroup, "bloodgroup")}
+                    {renderInfo("Address", profileData.address, "address")} {/* Changed from Village to Address */}
+                    {renderInfo("Father", profileData.fatherName, "fatherName")}
+                    {renderInfo("Mother", profileData.motherName, "motherName")}
                 </div>
                 {isEditing ? (
                     <div className="flex space-x-2 ml-4">
@@ -136,12 +149,11 @@ export function Profile({ className }) {
     );
 }
 
-
 function Info({ label, value }) {
     return (
         <div className="flex flex-col p-4">
             <span className="">{label}</span>
-            <span className="font-black font-medium">{value}</span>
+            <span className="font-black font-medium">{value || 'N/A'}</span> {/* Display N/A if value is null/undefined */}
         </div>
     );
 }
