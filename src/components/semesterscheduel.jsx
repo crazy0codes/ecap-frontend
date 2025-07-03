@@ -8,7 +8,7 @@ export function SemesterSchedule() {
     useEffect(() => {
         setLoading(true);
         setError(null);
-        fetch('http://localhost:8080/api/exams/schedule/V20/1/events')
+        fetch('http://20.244.28.21:8080/api/exams/schedule/V20/1/events')
             .then(res => {
                 if (!res.ok) throw new Error("Network response was not ok");
                 return res.json();

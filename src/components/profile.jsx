@@ -13,7 +13,7 @@ export function Profile({ className }) {
             return;
         }
         try {
-            const response = await fetch(`http://localhost:8080/api/students/${user.rollNumber}/profile`, {
+            const response = await fetch(`http://20.244.28.21:8080/api/students/${user.rollNumber}/profile`, {
                 headers: getAuthHeaders(user.rollNumber, user.password) // Pass credentials for Basic Auth
             });
             if (!response.ok) {
@@ -53,7 +53,7 @@ export function Profile({ className }) {
             return;
         }
         try {
-            const response = await fetch(`http://localhost:8080/api/students/${user.rollNumber}/profile`, {
+            const response = await fetch(`http://20.244.28.21:8080/api/students/${user.rollNumber}/profile`, {
                 method: 'PUT',
                 headers: getAuthHeaders(user.rollNumber, user.password), // Pass credentials
                 body: JSON.stringify(editProfileData),

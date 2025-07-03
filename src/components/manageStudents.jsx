@@ -78,7 +78,7 @@ export const ManageStudents = () => {
                 setShowModal(true);
             } else {
                 console.log('Adding new student to backend:', [studentPayload]);
-                const response = await fetch('http://localhost:8080/api/upload/students', {
+                const response = await fetch('http://20.244.28.21:8080/api/upload/students', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -300,7 +300,7 @@ export const ManageStudents = () => {
         setShowModal(true);
 
         try {
-            const response = await fetch('http://localhost:8080/api/upload/students', {
+            const response = await fetch('http://20.244.28.21:8080/api/upload/students', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

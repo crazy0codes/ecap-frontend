@@ -19,7 +19,7 @@ export function Layout() {
                     // if the user has already logged in via the browser's prompt.
                     // If you're using a custom login form, you might need to manually
                     // include Authorization headers here using getAuthHeaders from AuthContext.
-                    const response = await fetch(`http://localhost:8080/api/students/${user.rollNumber}/profile`);
+                    const response = await fetch(`http://20.244.28.21:8080/api/students/${user.rollNumber}/profile`);
 
                     if (!response.ok) {
                         if (response.status === 401) {

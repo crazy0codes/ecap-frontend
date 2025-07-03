@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }) => {
             headers.set('Authorization', 'Basic ' + btoa(rollNumber + ":" + password));
             headers.set('Content-Type', 'application/json');
 
-            const response = await fetch('http://localhost:8080/api/students/login', { // This endpoint is just a placeholder, Basic Auth works on any protected endpoint
+            const response = await fetch('http://20.244.28.21:8080/api/students/login', { // This endpoint is just a placeholder, Basic Auth works on any protected endpoint
                 method: 'POST', // Or POST, depending on your backend's login endpoint if it exists
                 headers: headers,
                 body: JSON.stringify({
@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }) => {
                 // Let's assume for now that if the login request succeeds,
                 // we can then fetch the user's profile to get their roles.
                 // This is a workaround since Basic Auth doesn't return roles directly on login.
-                const userProfileResponse = await fetch(`http://localhost:8080/api/students/${rollNumber}/profile`, {
+                const userProfileResponse = await fetch(`http://20.244.28.21:8080/api/students/${rollNumber}/profile`, {
                     headers: headers
                 });
 

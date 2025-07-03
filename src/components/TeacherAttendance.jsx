@@ -52,11 +52,11 @@ export const TeacherAttendance = () => {
             setError('');
             try {
                 const [branchesRes, semestersRes, coursesRes, periodsRes, daysRes] = await Promise.all([
-                    fetch('http://localhost:8080/api/upload/branches', { headers: getAuthHeaders() }),
-                    fetch('http://localhost:8080/api/semesters', { headers: getAuthHeaders() }),
-                    fetch('http://localhost:8080/api/upload/courses', { headers: getAuthHeaders() }),
-                    fetch('http://localhost:8080/api/periods', { headers: getAuthHeaders() }),
-                    fetch('http://localhost:8080/api/days', { headers: getAuthHeaders() }),
+                    fetch('http://20.244.28.21:8080/api/upload/branches', { headers: getAuthHeaders() }),
+                    fetch('http://20.244.28.21:8080/api/semesters', { headers: getAuthHeaders() }),
+                    fetch('http://20.244.28.21:8080/api/upload/courses', { headers: getAuthHeaders() }),
+                    fetch('http://20.244.28.21:8080/api/periods', { headers: getAuthHeaders() }),
+                    fetch('http://20.244.28.21:8080/api/days', { headers: getAuthHeaders() }),
                 ]);
 
                 const [branchesData, semestersData, coursesData, periodsData, daysData] = await Promise.all([
@@ -90,7 +90,7 @@ export const TeacherAttendance = () => {
                 setLoading(true);
                 setError('');
                 try {
-                    const response = await fetch(`http://localhost:8080/api/students/branch/${selectedBranch}/semester/${selectedSemester}`, { headers: getAuthHeaders() });
+                    const response = await fetch(`http://20.244.28.21:8080/api/students/branch/${selectedBranch}/semester/${selectedSemester}`, { headers: getAuthHeaders() });
                     if (!response.ok) {
                         throw new Error(`Failed to fetch students: ${response.statusText}`);
                     }
@@ -124,7 +124,7 @@ export const TeacherAttendance = () => {
                 setError('');
                 try {
                     const formattedDate = selectedDate; // Already in YYYY-MM-DD format
-                    const response = await fetch(`http://localhost:8080/api/attendance/sessions/branch/${selectedBranch}/semester/${selectedSemester}/date/${formattedDate}`, { headers: getAuthHeaders() });
+                    const response = await fetch(`http://20.244.28.21:8080/api/attendance/sessions/branch/${selectedBranch}/semester/${selectedSemester}/date/${formattedDate}`, { headers: getAuthHeaders() });
                     if (!response.ok) {
                         throw new Error(`Failed to fetch attendance sessions: ${response.statusText}`);
                     }
@@ -160,7 +160,7 @@ export const TeacherAttendance = () => {
         setModalAction(null); // Clear any previous action
 
         try {
-            const response = await fetch('http://localhost:8080/api/upload/attendance-sessions', { // Corrected URL
+            const response = await fetch('http://20.244.28.21:8080/api/upload/attendance-sessions', { // Corrected URL
                 method: 'POST',
                 headers: {
                     ...getAuthHeaders(),
@@ -227,7 +227,7 @@ export const TeacherAttendance = () => {
         }));
 
         try {
-            const response = await fetch(`http://localhost:8080/api/upload/attendance-records`, { // Corrected URL
+            const response = await fetch(`http://20.244.28.21:8080/api/upload/attendance-records`, { // Corrected URL
                 method: 'POST',
                 headers: {
                     ...getAuthHeaders(),

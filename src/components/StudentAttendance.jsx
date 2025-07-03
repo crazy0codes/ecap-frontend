@@ -22,7 +22,7 @@ export function StudentAttendance({ className }) {
             try {
                 // Fetch attendance summary for the logged-in student
                 // The backend endpoint is /api/attendance/students/{studentRollNumber}/summary
-                const response = await fetch(`http://localhost:8080/api/attendance/students/${user.rollNumber}/summary`);
+                const response = await fetch(`http://20.244.28.21:8080/api/attendance/students/${user.rollNumber}/summary`);
 
                 if (!response.ok) {
                     if (response.status === 401 || response.status === 403) {
