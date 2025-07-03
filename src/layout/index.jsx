@@ -102,7 +102,7 @@ export function Layout() {
                                     Dashboard
                                 </Link>
                                 {/* These links will be handled by TeacherDashboardHome */}
-                                {/* <Link to="/teacher/manage-students" className="block hover:bg-blue-500 rounded-lg px-4 py-2">
+                                <Link to="/teacher/manage-students" className="block hover:bg-blue-500 rounded-lg px-4 py-2">
                                     Manage Students
                                 </Link>
                                 <Link to="/teacher/upload-marks" className="block hover:bg-blue-500 rounded-lg px-4 py-2">
@@ -116,7 +116,7 @@ export function Layout() {
                                 </Link>
                                 <Link to="/teacher/manage-attendance" className="block hover:bg-blue-500 rounded-lg px-4 py-2">
                                     Manage Attendance
-                                </Link> */}
+                                </Link>
                             </>
                         )}
                     </nav>

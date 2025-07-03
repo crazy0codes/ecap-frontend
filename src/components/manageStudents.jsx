@@ -1,27 +1,40 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import ConfirmationModal from './confirmationModal.jsx'; // Corrected import path
+import ConfirmationModal from './confirmationModal.jsx';
 
 export const ManageStudents = () => {
     const [students, setStudents] = useState([]);
-    const [formData, setFormData] = useState({ id: '', name: '', rollNo: '', email: '', section: '', year: '' });
+    const [formData, setFormData] = useState({
+        id: '',
+        name: '',
+        rollNo: '',
+        email: '',
+        fatherName: '',
+        motherName: '',
+        address: '',
+        mobileno: '',
+        bloodgroup: '',
+        branchId: '',
+        regulationId: '',
+        password: 'studentpass'
+    });
     const [isEditing, setIsEditing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [modalMessage, setModalMessage] = useState('');
     const [modalAction, setModalAction] = useState(null);
-    const [activeTab, setActiveTab] = useState('individual'); // 'individual' or 'bulk'
+    const [activeTab, setActiveTab] = useState('individual');
 
     // States for bulk upload
     const [csvData, setCsvData] = useState([]);
     const [fileName, setFileName] = useState('');
     const [isDragOver, setIsDragOver] = useState(false);
 
-    // Dummy data for demonstration
+    // Dummy data for demonstration (adjust to new structure if needed for initial display)
     useEffect(() => {
         setStudents([
-            { id: '1', name: 'John Doe', rollNo: '22A81A0601', email: 'john.doe@example.com', section: 'A', year: 'III' },
-            { id: '2', name: 'Jane Smith', rollNo: '22A81A0602', email: 'jane.smith@example.com', section: 'B', year: 'III' },
-            { id: '3', name: 'Alice Johnson', rollNo: '22A81A0603', email: 'alice.j@example.com', section: 'A', year: 'IV' },
+            { id: '1', name: 'John Doe', rollNo: '22A81A0601', email: 'john.doe@example.com', section: 'A', year: 'III', fatherName: 'Robert Doe', motherName: 'Martha Doe', address: '123 Main St', mobileno: '9876543210', bloodgroup: 'O+', branchId: '1', regulationId: 'V20' },
+            { id: '2', name: 'Jane Smith', rollNo: '22A81A0602', email: 'jane.smith@example.com', section: 'B', year: 'III', fatherName: 'David Smith', motherName: 'Linda Smith', address: '456 Oak Ave', mobileno: '8765432109', bloodgroup: 'A-', branchId: '2', regulationId: 'R20' },
+            { id: '3', name: 'Alice Johnson', rollNo: '22A81A0603', email: 'alice.j@example.com', section: 'A', year: 'IV', fatherName: 'Frank Johnson', motherName: 'Carol Johnson', address: '789 Pine Ln', mobileno: '7654321098', bloodgroup: 'B+', branchId: '1', regulationId: 'V20' },
         ]);
     }, []);
 
@@ -40,33 +53,98 @@ export const ManageStudents = () => {
         student.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (isEditing) {
-            setStudents(students.map(s => s.id === formData.id ? formData : s));
-            setModalMessage('Student updated successfully!');
-        } else {
-            const newStudent = { ...formData, id: Date.now().toString() }; // Simple ID generation
-            setStudents([...students, newStudent]);
-            setModalMessage('Student added successfully!');
+        const studentPayload = {
+            rollNumber: formData.rollNo,
+            name: formData.name,
+            regulationId: formData.regulationId,
+            branchId: parseInt(formData.branchId, 10),
+            address: formData.address,
+            email: formData.email,
+            mobileno: formData.mobileno,
+            bloodgroup: formData.bloodgroup,
+            fatherName: formData.fatherName,
+            motherName: formData.motherName,
+            password: formData.password || 'studentpass'
+        };
+
+        try {
+            if (isEditing) {
+                // For editing, you'd typically have a PUT/PATCH endpoint with student ID
+                // For this example, we'll just update client-side.
+                setStudents(students.map(s => s.id === formData.id ? formData : s));
+                setModalMessage('Student updated successfully!');
+                setShowModal(true);
+            } else {
+                console.log('Adding new student to backend:', [studentPayload]);
+                const response = await fetch('http://localhost:8080/api/upload/students', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'ROLE_ADMIN'
+                    },
+                    body: JSON.stringify([studentPayload])
+                });
+
+                if (response.ok && response.status === 201) {
+                    const newStudentWithId = {
+                        ...studentPayload,
+                        id: Date.now().toString(),
+                        rollNo: studentPayload.rollNumber,
+                        section: 'N/A',
+                        year: 'N/A'
+                    };
+                    setStudents(prev => [...prev, newStudentWithId]);
+                    setModalMessage('Student added successfully!');
+                } else {
+                    let errorMessage = `Failed to add student: ${response.statusText || 'Unknown error'}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = `Failed to add student: ${errorData.message || response.statusText}`;
+                    } catch (e) {
+                        console.warn("Could not parse error response for individual student add.", e);
+                    }
+                    setModalMessage(errorMessage);
+                }
+                setShowModal(true);
+            }
+        } catch (error) {
+            console.error('Error submitting student data:', error);
+            setModalMessage('An error occurred while saving student data.');
+            setShowModal(true);
         }
-        setShowModal(true);
-        setFormData({ id: '', name: '', rollNo: '', email: '', section: '', year: '' });
+
+        setFormData({ id: '', name: '', rollNo: '', email: '', fatherName: '', motherName: '', address: '', mobileno: '', bloodgroup: '', branchId: '', regulationId: '', password: 'studentpass' });
         setIsEditing(false);
     };
 
     const handleEdit = (student) => {
-        setFormData(student);
+        setFormData({
+            id: student.id,
+            name: student.name,
+            rollNo: student.rollNo,
+            email: student.email,
+            fatherName: student.fatherName || '',
+            motherName: student.motherName || '',
+            address: student.address || '',
+            mobileno: student.mobileno || '',
+            bloodgroup: student.bloodgroup || '',
+            branchId: student.branchId || '',
+            regulationId: student.regulationId || '',
+            password: 'studentpass'
+        });
         setIsEditing(true);
-        setActiveTab('individual'); // Switch to individual tab for editing
+        setActiveTab('individual');
     };
 
     const handleDelete = (id) => {
         setModalMessage('Are you sure you want to delete this student?');
-        setModalAction(() => () => {
+        setModalAction(() => async () => {
+            console.log(`Simulating deletion of student with ID: ${id}`);
             setStudents(students.filter(s => s.id !== id));
             setModalMessage('Student deleted successfully!');
-            setShowModal(true); // Show confirmation for deletion
+            setShowModal(true);
         });
         setShowModal(true);
     };
@@ -74,48 +152,76 @@ export const ManageStudents = () => {
     const confirmModal = () => {
         if (modalAction) {
             modalAction();
-            setModalAction(null); // Clear action
+            setModalAction(null);
         }
-        setShowModal(false); // Close confirmation/success modal
+        setShowModal(false);
     };
 
     const cancelModal = () => {
         setShowModal(false);
-        setModalAction(null); // Clear action
+        setModalAction(null);
     };
 
     // --- CSV Upload Logic ---
 
     const parseCSV = (text) => {
-        const lines = text.split('\n').filter(line => line.trim() !== ''); // Filter out empty lines
+        const lines = text.split('\n').filter(line => line.trim() !== '');
         if (lines.length === 0) return [];
 
-        const headers = lines[0].split(',').map(h => h.trim());
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
         const data = [];
+
+        const expectedHeaderMap = {
+            'roll_number': 'rollNumber',
+            'name': 'name',
+            'regulation_id': 'regulationId',
+            'branch_id': 'branchId',
+            'address': 'address',
+            'email': 'email',
+            'mobileno': 'mobileno',
+            'bloodgroup': 'bloodgroup',
+            'fathername': 'fatherName',
+            'mothername': 'motherName'
+        };
 
         for (let i = 1; i < lines.length; i++) {
             const values = lines[i].split(',').map(v => v.trim());
             if (values.length !== headers.length) {
-                console.warn(`Skipping row ${i + 1} due to column mismatch.`);
-                continue; // Skip malformed rows
+                console.warn(`Skipping row ${i + 1} due to column mismatch or malformed line.`);
+                continue;
             }
             let rowObject = {};
             headers.forEach((header, index) => {
-                rowObject[header] = values[index];
+                const propertyName = expectedHeaderMap[header];
+                if (propertyName) {
+                    rowObject[propertyName] = values[index];
+                } else {
+                    console.warn(`Unexpected header in CSV: ${header}. Skipping this value.`);
+                }
             });
-            // Map CSV headers to internal student model properties
+
+            let branchIdValue = parseInt(rowObject['branchId'], 10);
+            if (isNaN(branchIdValue)) {
+                branchIdValue = null;
+                console.warn(`Invalid branch_id for roll number ${rowObject.rollNumber || 'N/A'}: ${rowObject['branchId']}`);
+            }
+
             data.push({
-                id: '', // Will be assigned on submission
-                name: rowObject['Name'] || '',
-                rollNo: rowObject['RollNo'] || '',
-                email: rowObject['Email'] || '',
-                section: rowObject['Section'] || '',
-                year: rowObject['Year'] || ''
+                rollNumber: rowObject['rollNumber'] || '',
+                name: rowObject['name'] || '',
+                regulationId: rowObject['regulationId'] || '',
+                branchId: branchIdValue,
+                address: rowObject['address'] || '',
+                email: rowObject['email'] || '',
+                mobileno: rowObject['mobileno'] || '',
+                bloodgroup: rowObject['bloodgroup'] || '',
+                fatherName: rowObject['fatherName'] || '',
+                motherName: rowObject['motherName'] || '',
+                password: 'studentpass'
             });
         }
-        return data;
+        return data.filter(s => s.rollNumber && s.name && s.email);
     };
-
 
     const handleFileDrop = useCallback((e) => {
         e.preventDefault();
@@ -130,7 +236,7 @@ export const ManageStudents = () => {
                 const parsed = parseCSV(text);
                 setCsvData(parsed);
                 if (parsed.length === 0) {
-                    setModalMessage('The CSV file is empty or could not be parsed. Please ensure it has data and correct formatting (e.g., "Name,RollNo,Email,Section,Year").');
+                    setModalMessage('The CSV file is empty or could not be parsed. Please ensure it has data and correct formatting (e.g., "roll_number,name,regulation_id,branch_id,address,email,mobileno,bloodgroup,fathername,mothername").');
                     setShowModal(true);
                 }
             };
@@ -163,12 +269,12 @@ export const ManageStudents = () => {
                 const parsed = parseCSV(text);
                 setCsvData(parsed);
                 if (parsed.length === 0) {
-                    setModalMessage('The CSV file is empty or could not be parsed. Please ensure it has data and correct formatting (e.g., "Name,RollNo,Email,Section,Year").');
+                    setModalMessage('The CSV file is empty or could not be parsed. Please ensure it has data and correct formatting (e.g., "roll_number,name,regulation_id,branch_id,address,email,mobileno,bloodgroup,fathername,mothername").');
                     setShowModal(true);
                 }
             };
             reader.readAsText(file);
-        } else if (file) { // If a file was selected but it's not CSV
+        } else if (file) {
             setModalMessage('Please select a valid CSV file.');
             setShowModal(true);
             setCsvData([]);
@@ -176,31 +282,11 @@ export const ManageStudents = () => {
         }
     };
 
-
-    // Placeholder for sending data to backend
-    const sendDataToBackend = async (data) => {
-        console.log('Simulating sending data to backend:', data);
-        console.log(data)
-        // In a real application, you would make an API call here, e.g.:
-        // const response = await fetch('/api/students/bulk-upload', {
-        //     method: 'POST',
-        //     headers: { 'Content-Type': 'application/json' },
-        //     body: JSON.stringify(data.map(s => ({ ...s, id: Date.now().toString() + Math.random().toString().substring(2, 8) }))) // Assign new IDs
-        // });
-        // if (response.ok) {
-        //     setModalMessage('Bulk upload successful!');
-        // } else {
-        //     setModalMessage('Bulk upload failed. Please try again.');
-        // }
-        // For demonstration, simulate success
-        return new Promise(resolve => setTimeout(() => {
-            // Assign unique IDs to new students before adding
-            const newStudentsWithIds = data.map(s => ({ ...s, id: Date.now().toString() + Math.random().toString().substring(2, 8) }));
-            setStudents(prev => [...prev, ...newStudentsWithIds]);
-            setModalMessage('Bulk upload successful!');
-            setShowModal(true); // Re-show modal with success message
-            resolve(true);
-        }, 1000));
+    const handleClearCsvData = () => {
+        setCsvData([]);
+        setFileName('');
+        setModalMessage('CSV data cleared successfully.');
+        setShowModal(true);
     };
 
     const handleBulkUploadSubmit = async () => {
@@ -210,12 +296,45 @@ export const ManageStudents = () => {
             return;
         }
 
-        setModalMessage('Uploading data...'); // Show loading message
+        setModalMessage('Uploading data...');
         setShowModal(true);
 
-        const success = await sendDataToBackend(csvData);
-        if (success) {
-            setCsvData([]); // Clear preview data after successful upload
+        try {
+            const response = await fetch('http://localhost:8080/api/upload/students', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'ROLE_ADMIN'
+                },
+                body: JSON.stringify(csvData)
+            });
+
+            if (response.ok && response.status === 201) {
+                const newStudentsWithIds = csvData.map(s => ({
+                    ...s,
+                    id: s.rollNumber + Math.random().toString().substring(2, 8),
+                    rollNo: s.rollNumber,
+                    section: 'N/A',
+                    year: 'N/A'
+                }));
+                setStudents(prev => [...prev, ...newStudentsWithIds]);
+                setModalMessage('Bulk upload successful!');
+            } else {
+                let errorMessage = `Bulk upload failed: ${response.statusText || 'Unknown error'}`;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = `Bulk upload failed: ${errorData.message || response.statusText}`;
+                } catch (e) {
+                    console.warn("Could not parse error response for bulk upload.", e);
+                }
+                setModalMessage(errorMessage);
+            }
+        } catch (error) {
+            console.error('Error during bulk upload:', error);
+            setModalMessage('An error occurred during bulk upload.');
+        } finally {
+            setShowModal(true);
+            setCsvData([]); // Clear CSV data after attempting upload
             setFileName('');
         }
     };
@@ -229,7 +348,7 @@ export const ManageStudents = () => {
                 show={showModal}
                 message={modalMessage}
                 onConfirm={confirmModal}
-                onCancel={modalAction ? cancelModal : undefined} // Only show cancel if a specific action needs confirmation
+                onCancel={modalAction ? cancelModal : undefined}
             />
 
             {/* Tab Navigation */}
@@ -246,7 +365,7 @@ export const ManageStudents = () => {
                         Individual Entry
                     </button>
                     <button
-                        onClick={() => { setActiveTab('bulk'); setIsEditing(false); setFormData({ id: '', name: '', rollNo: '', email: '', section: '', year: '' }); }}
+                        onClick={() => { setActiveTab('bulk'); setIsEditing(false); setFormData({ id: '', name: '', rollNo: '', email: '', fatherName: '', motherName: '', address: '', mobileno: '', bloodgroup: '', branchId: '', regulationId: '', password: 'studentpass' }); }}
                         className={`${
                             activeTab === 'bulk'
                                 ? 'border-blue-500 text-blue-600'
@@ -293,20 +412,73 @@ export const ManageStudents = () => {
                             />
                             <input
                                 type="text"
-                                name="section"
-                                value={formData.section}
+                                name="fatherName"
+                                value={formData.fatherName}
                                 onChange={handleInputChange}
-                                placeholder="Section"
+                                placeholder="Father's Name"
                                 required
                                 className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                             <input
                                 type="text"
-                                name="year"
-                                value={formData.year}
+                                name="motherName"
+                                value={formData.motherName}
                                 onChange={handleInputChange}
-                                placeholder="Year"
+                                placeholder="Mother's Name"
                                 required
+                                className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <input
+                                type="text"
+                                name="address"
+                                value={formData.address}
+                                onChange={handleInputChange}
+                                placeholder="Address"
+                                required
+                                className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <input
+                                type="text"
+                                name="mobileno"
+                                value={formData.mobileno}
+                                onChange={handleInputChange}
+                                placeholder="Mobile Number"
+                                required
+                                className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <input
+                                type="text"
+                                name="bloodgroup"
+                                value={formData.bloodgroup}
+                                onChange={handleInputChange}
+                                placeholder="Blood Group"
+                                required
+                                className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                             <input
+                                type="number"
+                                name="branchId"
+                                value={formData.branchId}
+                                onChange={handleInputChange}
+                                placeholder="Branch ID"
+                                required
+                                className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                             <input
+                                type="text"
+                                name="regulationId"
+                                value={formData.regulationId}
+                                onChange={handleInputChange}
+                                placeholder="Regulation ID (e.g., V20, R20)"
+                                required
+                                className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <input
+                                type="password"
+                                name="password"
+                                value={formData.password}
+                                onChange={handleInputChange}
+                                placeholder="Password (default: studentpass)"
                                 className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
@@ -320,7 +492,7 @@ export const ManageStudents = () => {
                             {isEditing && (
                                 <button
                                     type="button"
-                                    onClick={() => { setIsEditing(false); setFormData({ id: '', name: '', rollNo: '', email: '', section: '', year: '' }); }}
+                                    onClick={() => { setIsEditing(false); setFormData({ id: '', name: '', rollNo: '', email: '', fatherName: '', motherName: '', address: '', mobileno: '', bloodgroup: '', branchId: '', regulationId: '', password: 'studentpass' }); }}
                                     className="bg-gray-400 hover:bg-gray-500 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
                                 >
                                     Cancel Edit
@@ -356,38 +528,53 @@ export const ManageStudents = () => {
                         </label>
                         {fileName && <p className="mt-4 text-gray-700">File selected: <span className="font-medium">{fileName}</span></p>}
                         <p className="mt-2 text-sm text-gray-500">
-                            (Only CSV files are supported)
+                            (Only CSV files are supported. Expected headers: "roll_number,name,regulation_id,branch_id,address,email,mobileno,bloodgroup,fathername,mothername")
                         </p>
                     </div>
 
+                    {/* Display Extracted CSV Data and Action Buttons */}
                     {csvData.length > 0 && (
                         <div className="mb-8">
-                            <h2 className="text-xl font-semibold text-gray-700 mb-4">Confirm Upload Data ({csvData.length} entries)</h2>
-                            <div className="overflow-x-auto bg-white rounded-lg shadow-md border border-gray-200">
+                            <h2 className="text-xl font-semibold text-gray-700 mb-4">Preview & Confirm Upload Data ({csvData.length} entries)</h2>
+                            <div className="overflow-x-auto bg-white rounded-lg shadow-md border border-gray-200 mb-4">
                                 <table className="min-w-full leading-normal">
                                     <thead>
                                         <tr className="bg-blue-100 text-blue-800">
-                                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider rounded-tl-lg">Name</th>
-                                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Roll No</th>
+                                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider rounded-tl-lg">Roll No</th>
+                                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Name</th>
                                             <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Email</th>
-                                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Section</th>
-                                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider rounded-tr-lg">Year</th>
+                                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Father's Name</th>
+                                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Mother's Name</th>
+                                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Mobile No</th>
+                                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Blood Group</th>
+                                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Branch ID</th>
+                                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider rounded-tr-lg">Regulation ID</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {csvData.map((row, index) => (
                                             <tr key={index} className="hover:bg-gray-50 transition-colors duration-200">
+                                                <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{row.rollNumber}</td>
                                                 <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{row.name}</td>
-                                                <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{row.rollNo}</td>
                                                 <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{row.email}</td>
-                                                <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{row.section}</td>
-                                                <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{row.year}</td>
+                                                <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{row.fatherName}</td>
+                                                <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{row.motherName}</td>
+                                                <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{row.mobileno}</td>
+                                                <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{row.bloodgroup}</td>
+                                                <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{row.branchId}</td>
+                                                <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{row.regulationId}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
                             </div>
-                            <div className="mt-6 flex justify-end">
+                            <div className="mt-6 flex justify-end gap-4"> {/* Added gap for spacing */}
+                                <button
+                                    onClick={handleClearCsvData}
+                                    className="bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-8 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+                                >
+                                    Clear Data
+                                </button>
                                 <button
                                     onClick={handleBulkUploadSubmit}
                                     className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
@@ -422,6 +609,13 @@ export const ManageStudents = () => {
                             <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Email</th>
                             <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Section</th>
                             <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Year</th>
+                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Father's Name</th>
+                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Mother's Name</th>
+                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Address</th>
+                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Mobile No</th>
+                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Blood Group</th>
+                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Branch ID</th>
+                            <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Regulation ID</th>
                             <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider rounded-tr-lg">Actions</th>
                         </tr>
                     </thead>
@@ -432,6 +626,12 @@ export const ManageStudents = () => {
                                     <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{student.name}</td>
                                     <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{student.rollNo}</td>
                                     <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{student.email}</td>
+                                    <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{student.fatherName}</td>
+                                    <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{student.motherName}</td>
+                                    <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{student.mobileno}</td>
+                                    <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{student.bloodgroup}</td>
+                                    <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{student.branchId}</td>
+                                    <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{student.regulationId}</td>
                                     <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{student.section}</td>
                                     <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{student.year}</td>
                                     <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">
@@ -452,7 +652,7 @@ export const ManageStudents = () => {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="6" className="px-5 py-4 border-b border-gray-200 bg-white text-center text-sm text-gray-500">
+                                <td colSpan="13" className="px-5 py-4 border-b border-gray-200 bg-white text-center text-sm text-gray-500">
                                     No students found.
                                 </td>
                             </tr>

@@ -28,17 +28,20 @@ export const AuthProvider = ({ children }) => {
             // In a Basic Auth setup, the browser typically handles the initial prompt.
             // For programmatic login (e.g., if you build a custom login form),
             // you'd make a fetch request with Basic Auth headers.
-            // const headers = new Headers();
-            // headers.set('Authorization', 'Basic ' + btoa(rollNumber + ":" + password));
-            // headers.set('Content-Type', 'application/json');
+            const headers = new Headers();
+            headers.set('Authorization', 'Basic ' + btoa(rollNumber + ":" + password));
+            headers.set('Content-Type', 'application/json');
 
             const response = await fetch('http://localhost:8080/api/students/login', { // This endpoint is just a placeholder, Basic Auth works on any protected endpoint
                 method: 'POST', // Or POST, depending on your backend's login endpoint if it exists
-                body: {
+                headers: headers,
+                body: JSON.stringify({
                     rollNumber,
                     password
-                }
+                })
             });
+
+            console.log(response)
 
             if (response.ok) {
                 // For Basic Auth, a successful response to any protected endpoint
@@ -73,7 +76,7 @@ export const AuthProvider = ({ children }) => {
 
                     // For this basic auth, we'll just store the username and a placeholder for roles.
                     // The actual role enforcement happens on the backend via @PreAuthorize.
-                    setUser({ rollNumber: rollNumber, roles: ["ROLE_STUDENT"] }); // Default to student role for now
+                    setUser({ rollNumber: rollNumber, roles: ["ROLE_ADMIN"] }); // Default to student role for now
                     setIsAuthenticated(true);
                     console.log("Login successful for:", rollNumber);
                     return { success: true, message: "Login successful" };

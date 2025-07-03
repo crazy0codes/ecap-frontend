@@ -19,9 +19,11 @@ export function Marks({ className }) {
             setLoading(true);
             setError("");
             try {
-                // Fetch marks for the logged-in student and selected semester
-                const response = await fetch(`http://localhost:8080/api/students/${user.rollNumber}/semester/${semester}/marks`, {
-                    headers: getAuthHeaders(user.rollNumber, user.password) // Pass credentials
+                // Use correct URL and GET request for Spring Boot backend
+                const url = `http://localhost:8080/api/students/${user.rollNumber}/semester/${semester}/marks`;
+                const response = await fetch(url, {
+                    method: "GET",
+                    headers: getAuthHeaders(user.rollNumber, user.password)
                 });
 
                 if (!response.ok) {
@@ -45,7 +47,7 @@ export function Marks({ className }) {
         };
 
         fetchMarks();
-    }, [semester, user, getAuthHeaders]); // Re-fetch when semester or user changes
+    }, [semester, user, getAuthHeaders]);
 
     return (
         <div className={className + " px-2 shadow-lg"}>
