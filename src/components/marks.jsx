@@ -20,7 +20,7 @@ export function Marks({ className }) {
             setError("");
             try {
                 // Use correct URL and GET request for Spring Boot backend
-                const url = `http://20.244.28.21:8080/api/students/${user.rollNumber}/semester/${semester}/marks`;
+                const url = `http://localhost:8080/api/students/${user.rollNumber}/semester/${semester}/marks`;
                 const response = await fetch(url, {
                     method: "GET",
                     headers: getAuthHeaders(user.rollNumber, user.password)

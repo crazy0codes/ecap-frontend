@@ -1,15 +1,20 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "./AuthContext";
 
 export function SemesterSchedule() {
     const [semesterSchedule, setSemesterSchedule] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const {getAuthHeaders, user} = useAuth()
 
     useEffect(() => {
         setLoading(true);
         setError(null);
-        fetch('http://20.244.28.21:8080/api/exams/schedule/V20/1/events')
+        fetch('http://localhost:8080/api/exams/schedule/V20/1/events', {
+             headers: getAuthHeaders(user.rollNumber, user.password)
+        })
             .then(res => {
+                console.log(res)
                 if (!res.ok) throw new Error("Network response was not ok");
                 return res.json();
             })

@@ -1,63 +1,28 @@
-import React, { useState, useEffect, useCallback } from 'react'; // Added useCallback
+import React, { useState, useEffect, useCallback } from 'react';
 import ConfirmationModal from './confirmationModal.jsx';
+import { useAuth } from './AuthContext.jsx'; // Assuming AuthContext provides user info for headers
 
 export const UploadMarks = () => {
-    // Dummy data for courses, matching your provided database schema
-    const dummyCourses = [
-        { course_id: 1, course_code: 'V20MAT02', course_name: 'NUMERICAL METHODS AND VECTOR CALCULUS', credits: 3 },
-        { course_id: 2, course_code: 'V20PHT01', course_name: 'ENGINEERING PHYSICS', credits: 3 },
-        { course_id: 3, course_code: 'V20ECT01', course_name: 'SWITCHING THEORY AND LOGIC DESIGN', credits: 3 },
-        { course_id: 4, course_code: 'V20CST02', course_name: 'PYTHON PROGRAMMING', credits: 3 },
-        { course_id: 5, course_code: 'V20MET01', course_name: 'ENGINEERING GRAPHICS', credits: 3 },
-        { course_id: 6, course_code: 'V20PHTL01', course_name: 'ENGINEERING PHYSICS LAB', credits: 1.5 },
-        { course_id: 7, course_code: 'V20CSL02', course_name: 'PYTHON PROGRAMMING LAB', credits: 1.5 },
-        { course_id: 8, course_code: 'V20ENL02', course_name: 'HONE YOUR COMMUNICATION SKILLS LAB-II', credits: 1.5 },
-        { course_id: 9, course_code: 'V20CHT02', course_name: 'ENVIRONMENTAL STUDIES', credits: 0 },
-    ];
+    const { user } = useAuth(); // Get user for authorization headers if needed
 
-    // Dummy data for semesters
-    const dummySemesters = [
-        { id: 1, name: 'Semester 1' },
-        { id: 2, name: 'Semester 2' },
-        { id: 3, name: 'Semester 3' },
-        { id: 4, name: 'Semester 4' },
-    ];
+    // State for fetched data
+    const [students, setStudents] = useState([]);
+    const [courses, setCourses] = useState([]);
+    const [semesters, setSemesters] = useState([]);
+    const [branches, setBranches] = useState([]); // Needed for student filtering if fetching all students
 
-    // Dummy student data, now including a nested structure for semesterMarks
-    // semesterMarks: { [semesterId]: { [courseId]: { marksObtained: number, grade: string } } }
-    const [students, setStudents] = useState([
-        {
-            id: '1',
-            name: 'John Doe',
-            rollNo: '22A81A0601',
-            semesterMarks: {
-                '1': {
-                    '1': { marksObtained: 85, grade: 'A' }, // Semester 1, Course 1 (NUMERICAL METHODS AND VECTOR CALCULUS)
-                    '2': { marksObtained: 70, grade: 'B' }, // Semester 1, Course 2 (ENGINEERING PHYSICS)
-                },
-                '2': {
-                    '4': { marksObtained: 92, grade: 'A+' }, // Semester 2, Course 4 (PYTHON PROGRAMMING)
-                }
-            }
-        },
-        {
-            id: '2',
-            name: 'Jane Smith',
-            rollNo: '22A81A0602',
-            semesterMarks: {
-                '1': {
-                    '1': { marksObtained: 78, grade: 'B+' },
-                    '5': { marksObtained: 65, grade: 'C' },
-                }
-            }
-        },
-    ]);
-
-    const [selectedStudentId, setSelectedStudentId] = useState('');
+    // State for form selections
+    const [selectedStudentRollNo, setSelectedStudentRollNo] = useState(''); // Changed to rollNo
     const [selectedCourseId, setSelectedCourseId] = useState('');
     const [selectedSemesterId, setSelectedSemesterId] = useState('');
     const [currentMarksData, setCurrentMarksData] = useState({ marksObtained: '', grade: '' });
 
+    // State for search and filter
+    const [searchTerm, setSearchTerm] = useState('');
+
+    // State for UI feedback
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [modalMessage, setModalMessage] = useState('');
     const [activeTab, setActiveTab] = useState('individual'); // 'individual' or 'bulk'
@@ -67,35 +32,123 @@ export const UploadMarks = () => {
     const [fileName, setFileName] = useState('');
     const [isDragOver, setIsDragOver] = useState(false);
 
+    // Helper to get authorization headers (same as in TeacherAttendance)
+    const getAuthHeaders = () => {
+        // For this example, assuming no specific auth header needed by backend for GETs
+        // If your backend requires it, you'd use user.token or similar from AuthContext
+        return { 'Content-Type': 'application/json' };
+    };
 
-    // Effect to reset marks when student, course, or semester changes
+    // Helper function to safely parse JSON or return empty array for 204 No Content
+    const parseJsonResponse = async (response) => {
+        if (response.status === 204) {
+            return []; // No content, return empty array
+        }
+        if (!response.ok) {
+            // Attempt to parse error message if available, otherwise use status text
+            const errorText = await response.text();
+            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText || response.statusText}`);
+        }
+        return response.json();
+    };
+
+    // --- Data Fetching Effects ---
+
+    // Fetch initial data (branches, semesters, courses, students)
     useEffect(() => {
-        if (selectedStudentId && selectedCourseId && selectedSemesterId) {
-            const student = students.find(s => s.id === selectedStudentId);
-            if (student && student.semesterMarks[selectedSemesterId] && student.semesterMarks[selectedSemesterId][selectedCourseId]) {
-                setCurrentMarksData(student.semesterMarks[selectedSemesterId][selectedCourseId]);
+        const fetchData = async () => {
+            setLoading(true);
+            setError('');
+            try {
+                const [studentsRes, coursesRes, semestersRes, branchesRes] = await Promise.all([
+                    fetch('http://localhost:8080/api/students', { headers: getAuthHeaders() }),
+                    fetch('http://localhost:8080/api/courses', { headers: getAuthHeaders() }),
+                    fetch('http://localhost:8080/api/semesters', { headers: getAuthHeaders() }),
+                    fetch('http://localhost:8080/api/branches', { headers: getAuthHeaders() }),
+                ]);
+
+                // Safely parse JSON for each response
+                const [studentsData, coursesData, semestersData, branchesData] = await Promise.all([
+                    parseJsonResponse(studentsRes),
+                    parseJsonResponse(coursesRes),
+                    parseJsonResponse(semestersRes),
+                    parseJsonResponse(branchesRes),
+                ]);
+
+                setStudents(studentsData);
+                setCourses(coursesData);
+                setSemesters(semestersData);
+                setBranches(branchesData);
+
+            } catch (err) {
+                console.error("Error fetching initial data:", err);
+                setError('Failed to load initial data. Please ensure backend is running and data is available. Error: ' + err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, [user]);
+
+
+    // Effect to fetch and display existing marks when student, course, or semester changes
+    useEffect(() => {
+        const fetchExistingMarks = async () => {
+            if (selectedStudentRollNo && selectedSemesterId && selectedCourseId) {
+                setLoading(true);
+                setError('');
+                try {
+                    const response = await fetch(`http://localhost:8080/api/students/${selectedStudentRollNo}/semester/${selectedSemesterId}/marks`, {
+                        headers: getAuthHeaders()
+                    });
+
+                    const data = await parseJsonResponse(response); // Use the helper function
+
+                    // The API returns a list of marks for the semester. Find the specific course's mark.
+                    const markForCourse = data.find(mark => mark.courseId === selectedCourseId);
+
+                    if (markForCourse) {
+                        setCurrentMarksData({
+                            marksObtained: markForCourse.marksObtained,
+                            grade: markForCourse.grade
+                        });
+                    } else {
+                        setCurrentMarksData({ marksObtained: '', grade: '' });
+                    }
+                } catch (err) {
+                    console.error("Error fetching existing marks:", err);
+                    setError('Failed to load existing marks. Error: ' + err.message);
+                    setCurrentMarksData({ marksObtained: '', grade: '' });
+                } finally {
+                    setLoading(false);
+                }
             } else {
                 setCurrentMarksData({ marksObtained: '', grade: '' });
             }
-        } else {
-            setCurrentMarksData({ marksObtained: '', grade: '' });
-        }
-    }, [selectedStudentId, selectedCourseId, selectedSemesterId, students]);
+        };
+        fetchExistingMarks();
+    }, [selectedStudentRollNo, selectedCourseId, selectedSemesterId, user]);
 
+    // Filter students based on search term
+    const filteredStudents = students.filter(student =>
+        student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.rollNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // --- Handlers for Individual Entry ---
 
     const handleStudentSelect = (e) => {
-        setSelectedStudentId(e.target.value);
-        // Reset course and marks when student changes
+        setSelectedStudentRollNo(e.target.value);
         setSelectedCourseId('');
         setSelectedSemesterId('');
     };
 
     const handleCourseSelect = (e) => {
-        setSelectedCourseId(parseInt(e.target.value, 10)); // Ensure it's a number
+        setSelectedCourseId(parseInt(e.target.value, 10));
     };
 
     const handleSemesterSelect = (e) => {
-        setSelectedSemesterId(parseInt(e.target.value, 10)); // Ensure it's a number
+        setSelectedSemesterId(parseInt(e.target.value, 10));
     };
 
     const handleMarkChange = (e) => {
@@ -105,21 +158,14 @@ export const UploadMarks = () => {
 
     const handleSubmitMarks = async (e) => {
         e.preventDefault();
-        if (!selectedStudentId || !selectedCourseId || !selectedSemesterId || currentMarksData.marksObtained === '' || currentMarksData.grade === '') {
+        if (!selectedStudentRollNo || !selectedCourseId || !selectedSemesterId || currentMarksData.marksObtained === '' || currentMarksData.grade === '') {
             setModalMessage('Please select a student, course, semester, and enter both marks and grade.');
             setShowModal(true);
             return;
         }
 
-        const student = students.find(s => s.id === selectedStudentId);
-        if (!student) {
-            setModalMessage('Selected student not found.');
-            setShowModal(true);
-            return;
-        }
-
         const payload = [{
-            rollNumber: student.rollNo,
+            rollNumber: selectedStudentRollNo,
             courseId: selectedCourseId,
             semesterId: selectedSemesterId,
             marksObtained: parseFloat(currentMarksData.marksObtained),
@@ -130,37 +176,25 @@ export const UploadMarks = () => {
         setShowModal(true);
 
         try {
-            const response = await fetch('http://localhost:8008/api/upload/semester-marks', {
+            const response = await fetch('http://localhost:8080/api/upload/semester-marks', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'ROLE_FACULTY'
                 },
                 body: JSON.stringify(payload)
             });
 
             if (response.ok) {
-                setStudents(prevStudents =>
-                    prevStudents.map(s => {
-                        if (s.id === selectedStudentId) {
-                            const updatedSemesterMarks = { ...s.semesterMarks };
-                            if (!updatedSemesterMarks[selectedSemesterId]) {
-                                updatedSemesterMarks[selectedSemesterId] = {};
-                            }
-                            updatedSemesterMarks[selectedSemesterId][selectedCourseId] = {
-                                marksObtained: parseFloat(currentMarksData.marksObtained),
-                                grade: currentMarksData.grade.toUpperCase()
-                            };
-                            return { ...s, semesterMarks: updatedSemesterMarks };
-                        }
-                        return s;
-                    })
-                );
                 setModalMessage('Marks uploaded successfully!');
+                // Re-fetch all students to update the overview table
+                const updatedStudentsRes = await fetch('http://localhost:8080/api/students', { headers: getAuthHeaders() });
+                const updatedStudentsData = await parseJsonResponse(updatedStudentsRes); // Use helper
+                setStudents(updatedStudentsData);
+
             } else {
                 let errorMessage = `Failed to upload marks: ${response.statusText || 'Unknown error'}`;
                 try {
-                    const errorData = await response.json();
+                    const errorData = await response.json(); // Still try to parse if not 204
                     errorMessage = `Failed to upload marks: ${errorData.message || response.statusText}`;
                 } catch (e) {
                     console.warn("Could not parse error response for marks upload.", e);
@@ -172,7 +206,7 @@ export const UploadMarks = () => {
             setModalMessage('An error occurred while uploading marks.');
         } finally {
             setShowModal(true);
-            setSelectedStudentId('');
+            setSelectedStudentRollNo('');
             setSelectedCourseId('');
             setSelectedSemesterId('');
             setCurrentMarksData({ marksObtained: '', grade: '' });
@@ -192,7 +226,6 @@ export const UploadMarks = () => {
         const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
         const data = [];
 
-        // Expected headers for marks upload CSV
         const expectedHeaderMap = {
             'rollnumber': 'rollNumber',
             'courseid': 'courseId',
@@ -217,26 +250,24 @@ export const UploadMarks = () => {
                 }
             });
 
-            // Type conversions and validation for marks data
             let courseIdValue = parseInt(rowObject['courseId'], 10);
             let semesterIdValue = parseInt(rowObject['semesterId'], 10);
             let marksObtainedValue = parseFloat(rowObject['marksObtained']);
 
-            if (isNaN(courseIdValue) || isNaN(semesterIdValue) || isNaN(marksObtainedValue)) {
-                console.warn(`Invalid numeric data in row ${i + 1}. Skipping.`);
+            if (isNaN(courseIdValue) || isNaN(semesterIdValue) || isNaN(marksObtainedValue) || !rowObject['rollNumber'] || !rowObject['grade']) {
+                console.warn(`Invalid or missing data in row ${i + 1}. Skipping.`);
                 continue;
             }
 
             data.push({
-                rollNumber: rowObject['rollNumber'] || '',
+                rollNumber: rowObject['rollNumber'],
                 courseId: courseIdValue,
                 semesterId: semesterIdValue,
                 marksObtained: marksObtainedValue,
-                grade: (rowObject['grade'] || '').toUpperCase()
+                grade: (rowObject['grade']).toUpperCase()
             });
         }
-        // Basic validation: ensure essential fields are present
-        return data.filter(entry => entry.rollNumber && entry.courseId && entry.semesterId && entry.marksObtained !== '' && entry.grade);
+        return data;
     };
 
     const handleFileDrop = useCallback((e) => {
@@ -316,53 +347,19 @@ export const UploadMarks = () => {
         setShowModal(true);
 
         try {
-            const response = await fetch('http://localhost:8008/api/upload/semester-marks', {
+            const response = await fetch('http://localhost:8080/api/upload/semester-marks', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'ROLE_FACULTY' // Or ROLE_ADMIN
                 },
                 body: JSON.stringify(csvData)
             });
 
             if (response.ok) {
-                // Assuming success, update local student data based on uploaded CSV
-                // This is a simplified update; a real app might re-fetch student data
-                setStudents(prevStudents => {
-                    const updatedStudents = [...prevStudents];
-                    csvData.forEach(newMark => {
-                        const studentIndex = updatedStudents.findIndex(s => s.rollNo === newMark.rollNumber);
-                        if (studentIndex !== -1) {
-                            const studentToUpdate = { ...updatedStudents[studentIndex] };
-                            if (!studentToUpdate.semesterMarks[newMark.semesterId]) {
-                                studentToUpdate.semesterMarks[newMark.semesterId] = {};
-                            }
-                            studentToUpdate.semesterMarks[newMark.semesterId][newMark.courseId] = {
-                                marksObtained: newMark.marksObtained,
-                                grade: newMark.grade
-                            };
-                            updatedStudents[studentIndex] = studentToUpdate;
-                        } else {
-                            // If student not found locally, add a new dummy student for display
-                            // In a real app, you'd fetch this student from backend or handle differently
-                            updatedStudents.push({
-                                id: newMark.rollNumber + '_new', // Dummy ID
-                                name: `New Student (${newMark.rollNumber})`, // Placeholder name
-                                rollNo: newMark.rollNumber,
-                                semesterMarks: {
-                                    [newMark.semesterId]: {
-                                        [newMark.courseId]: {
-                                            marksObtained: newMark.marksObtained,
-                                            grade: newMark.grade
-                                        }
-                                    }
-                                }
-                            });
-                        }
-                    });
-                    return updatedStudents;
-                });
                 setModalMessage('Bulk marks uploaded successfully!');
+                const updatedStudentsRes = await fetch('http://localhost:8080/api/students', { headers: getAuthHeaders() });
+                const updatedStudentsData = await parseJsonResponse(updatedStudentsRes); // Use helper
+                setStudents(updatedStudentsData);
             } else {
                 let errorMessage = `Bulk upload failed: ${response.statusText || 'Unknown error'}`;
                 try {
@@ -408,7 +405,7 @@ export const UploadMarks = () => {
                         Individual Entry
                     </button>
                     <button
-                        onClick={() => { setActiveTab('bulk'); setSelectedStudentId(''); setSelectedCourseId(''); setSelectedSemesterId(''); setCurrentMarksData({ marksObtained: '', grade: '' }); }}
+                        onClick={() => { setActiveTab('bulk'); setSelectedStudentRollNo(''); setSelectedCourseId(''); setSelectedSemesterId(''); setCurrentMarksData({ marksObtained: '', grade: '' }); }}
                         className={`${
                             activeTab === 'bulk'
                                 ? 'border-blue-500 text-blue-600'
@@ -420,25 +417,44 @@ export const UploadMarks = () => {
                 </nav>
             </div>
 
+            {loading && <p className="text-center text-blue-600 mt-4">Loading data...</p>}
+            {error && <p className="text-center text-red-600 mt-4">{error}</p>}
+
             {activeTab === 'individual' && (
                 <form onSubmit={handleSubmitMarks} className="bg-gray-100 p-6 rounded-lg mb-8 shadow-inner">
+                    <div className="mb-4">
+                        <label htmlFor="searchTerm" className="block text-gray-700 text-sm font-semibold mb-2">Search Student (Name or Roll No):</label>
+                        <input
+                            type="text"
+                            id="searchTerm"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Type to search students..."
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         {/* Student Select */}
                         <div>
                             <label htmlFor="studentSelect" className="block text-gray-700 text-sm font-semibold mb-2">Select Student:</label>
                             <select
                                 id="studentSelect"
-                                value={selectedStudentId}
+                                value={selectedStudentRollNo}
                                 onChange={handleStudentSelect}
                                 className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                                 required
                             >
                                 <option value="">-- Select a student --</option>
-                                {students.map(student => (
-                                    <option key={student.id} value={student.id}>
-                                        {student.name} ({student.rollNo})
-                                    </option>
-                                ))}
+                                {filteredStudents.length > 0 ? (
+                                    filteredStudents.map(student => (
+                                        <option key={student.rollNumber} value={student.rollNumber}>
+                                            {student.name} ({student.rollNumber})
+                                        </option>
+                                    ))
+                                ) : (
+                                    <option disabled>No students found</option>
+                                )}
                             </select>
                         </div>
 
@@ -451,12 +467,12 @@ export const UploadMarks = () => {
                                 onChange={handleSemesterSelect}
                                 className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                                 required
-                                disabled={!selectedStudentId}
+                                disabled={!selectedStudentRollNo}
                             >
                                 <option value="">-- Select a semester --</option>
-                                {dummySemesters.map(semester => (
-                                    <option key={semester.id} value={semester.id}>
-                                        {semester.name}
+                                {semesters.map(semester => (
+                                    <option key={semester.semesterId} value={semester.semesterId}>
+                                        Semester {semester.semesterNumber}
                                     </option>
                                 ))}
                             </select>
@@ -471,12 +487,12 @@ export const UploadMarks = () => {
                                 onChange={handleCourseSelect}
                                 className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                                 required
-                                disabled={!selectedStudentId || !selectedSemesterId}
+                                disabled={!selectedStudentRollNo || !selectedSemesterId}
                             >
                                 <option value="">-- Select a course --</option>
-                                {dummyCourses.map(course => (
-                                    <option key={course.course_id} value={course.course_id}>
-                                        {course.course_code} - {course.course_name}
+                                {courses.map(course => (
+                                    <option key={course.courseId} value={course.courseId}>
+                                        {course.courseCode} - {course.courseName}
                                     </option>
                                 ))}
                             </select>
@@ -498,7 +514,7 @@ export const UploadMarks = () => {
                                 max="100"
                                 className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 required
-                                disabled={!selectedStudentId || !selectedCourseId || !selectedSemesterId}
+                                disabled={!selectedStudentRollNo || !selectedCourseId || !selectedSemesterId}
                             />
                         </div>
                         {/* Grade Input */}
@@ -514,7 +530,7 @@ export const UploadMarks = () => {
                                 maxLength="2"
                                 className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 required
-                                disabled={!selectedStudentId || !selectedCourseId || !selectedSemesterId}
+                                disabled={!selectedStudentRollNo || !selectedCourseId || !selectedSemesterId}
                             />
                         </div>
                     </div>
@@ -522,7 +538,7 @@ export const UploadMarks = () => {
                     <button
                         type="submit"
                         className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-                        disabled={!selectedStudentId || !selectedCourseId || !selectedSemesterId || currentMarksData.marksObtained === '' || currentMarksData.grade === ''}
+                        disabled={!selectedStudentRollNo || !selectedCourseId || !selectedSemesterId || currentMarksData.marksObtained === '' || currentMarksData.grade === ''}
                     >
                         Upload Marks
                     </button>
@@ -613,32 +629,41 @@ export const UploadMarks = () => {
                             <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider rounded-tl-lg">Student Name</th>
                             <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">Roll No</th>
                             {/* Dynamically generate headers for each course */}
-                            {dummyCourses.map(course => (
-                                <th key={course.course_id} className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">
-                                    {course.course_code} ({course.course_name}) - S{selectedSemesterId || 'All'}
+                            {courses.map(course => (
+                                <th key={course.courseId} className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold uppercase tracking-wider">
+                                    {course.courseCode} ({course.courseName})
                                 </th>
                             ))}
                         </tr>
                     </thead>
                     <tbody>
-                        {students.map(student => (
-                            <tr key={student.id} className="hover:bg-gray-50 transition-colors duration-200">
-                                <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{student.name}</td>
-                                <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{student.rollNo}</td>
-                                {/* Display marks for each course */}
-                                {dummyCourses.map(course => {
-                                    const marksEntry = selectedSemesterId
-                                        ? student.semesterMarks[selectedSemesterId]?.[course.course_id]
-                                        : Object.values(student.semesterMarks).flatMap(sem => Object.values(sem)).find(mark => mark.courseId === course.course_id);
+                        {filteredStudents.length > 0 ? (
+                            filteredStudents.map(student => (
+                                <tr key={student.rollNumber} className="hover:bg-gray-50 transition-colors duration-200">
+                                    <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{student.name}</td>
+                                    <td className="px-5 py-4 border-b border-gray-200 bg-white text-sm">{student.rollNumber}</td>
+                                    {/* Display marks for each course for the selected semester */}
+                                    {courses.map(course => {
+                                        const markEntry = student.semesterMarks?.find(
+                                            mark => mark.courseCode === course.courseCode &&
+                                                    (selectedSemesterId ? mark.semesterNumber === semesters.find(s => s.semesterId === selectedSemesterId)?.semesterNumber : true)
+                                        );
 
-                                    return (
-                                        <td key={`${student.id}-${course.course_id}`} className="px-5 py-4 border-b border-gray-200 bg-white text-sm">
-                                            {marksEntry ? `${marksEntry.marksObtained} (${marksEntry.grade})` : '-'}
-                                        </td>
-                                    );
-                                })}
+                                        return (
+                                            <td key={`${student.rollNumber}-${course.courseId}`} className="px-5 py-4 border-b border-gray-200 bg-white text-sm">
+                                                {markEntry ? `${markEntry.marksObtained} (${markEntry.grade})` : '-'}
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan={2 + courses.length} className="px-5 py-4 border-b border-gray-200 bg-white text-center text-sm text-gray-500">
+                                    {loading ? "Loading students..." : "No students found. Please upload student data."}
+                                </td>
                             </tr>
-                        ))}
+                        )}
                     </tbody>
                 </table>
             </div>

@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }) => {
                 // Let's assume for now that if the login request succeeds,
                 // we can then fetch the user's profile to get their roles.
                 // This is a workaround since Basic Auth doesn't return roles directly on login.
-                const userProfileResponse = await fetch(`http://20.244.28.21:8080/api/students/${rollNumber}/profile`, {
+                const userProfileResponse = await fetch(`http://localhost:8080/api/students/${rollNumber}/profile`, {
                     headers: headers
                 });
 
@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }) => {
 
                     // For this basic auth, we'll just store the username and a placeholder for roles.
                     // The actual role enforcement happens on the backend via @PreAuthorize.
-                    setUser({ rollNumber: rollNumber, roles: ["ROLE_ADMIN"] }); // Default to student role for now
+                    setUser({ rollNumber: rollNumber, roles: ["ROLE_STUDENT"] }); // Default to student role for now
                     setIsAuthenticated(true);
                     console.log("Login successful for:", rollNumber);
                     return { success: true, message: "Login successful" };
